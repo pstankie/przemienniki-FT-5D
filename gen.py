@@ -143,6 +143,12 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
             activation = repeater.find("activation").text.upper() if repeater.find("activation") is not None else ""
             tone_mode = "OFF" if "CARRIER" in activation else "TONE"
 
+            # Check for "fm-poland" or "FM POLAND" in remarks or link
+            remarks = repeater.find("remarks").text.lower() if repeater.find("remarks") is not None else ""
+            link = repeater.find("link").text.lower() if repeater.find("link") is not None else ""
+            if "fm-poland" in remarks or "fm poland" in remarks or "fm-poland" in link or "fm poland" in link:
+                name += " fmpol"
+
             repeater_data.append({
                 "Channel No": len(repeater_data) + 1,
                 "Priority CH": "OFF",
