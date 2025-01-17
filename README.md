@@ -8,6 +8,10 @@ The format is compatible with ADMS-11 to ADMS-14.
 
 More info https://www.repeaterbook.com/wiki/doku.php?id=yaesu_adms_11#supported_searches
 
+
+## Important Warning
+**Before** using this program, **make a backup of your FT5D configuration**. This software is provided as-is, without any warranty of any kind. The author is not responsible for any damage, loss of data, or other issues that may arise from using this program or data in the repository !
+
 ## Usage
 You can generate the list by running `gen.py` script or you can import `adms14_ft5d.csv` file to **FT5D Programmer ADMS-14**. Should wordk with FT3D too.
 
