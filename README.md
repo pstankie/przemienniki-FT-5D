@@ -8,8 +8,14 @@ The format is compatible with ADMS-11 to ADMS-14.
 
 More info https://www.repeaterbook.com/wiki/doku.php?id=yaesu_adms_11#supported_searches
 
-##
-You can generate the list by running `gen.py` file or you can import `adms14_ft5d.csv` file to **FT5D Programmer ADMS-14**. Should wordk with FT3D too.
+## Usage
+You can generate the list by running `gen.py` script or you can import `adms14_ft5d.csv` file to **FT5D Programmer ADMS-14**. Should wordk with FT3D too.
+
+
+```
+pip install -r requirements.txt
+./gen.py JO90vd 100
+```
 
 Note: I'm not putting `BACKUP.dat` file here, for obvious reasons.
 

@@ -6,6 +6,7 @@
 import requests
 import xml.etree.ElementTree as ET
 import csv
+from geopy.distance import geodesic
 
 # Constants
 XML_URL = "https://przemienniki.net/export/rxf.xml"
@@ -75,11 +76,24 @@ def fetch_xml_data(url):
     response.raise_for_status()
     return response.content
 
-def parse_adms4b(xml_data):
+def locator_to_coordinates(locator):
+    """Convert Maidenhead locator to latitude and longitude."""
+    if len(locator) < 4:
+        raise ValueError("Locator must be at least 4 characters long.")
+
+    lon = (ord(locator[0].upper()) - 65) * 20 - 180 + (int(locator[2]) * 2)
+    lat = (ord(locator[1].upper()) - 65) * 10 - 90 + (int(locator[3]) * 1)
+
+    return lat, lon
+
+def parse_adms4b(xml_data, reference_locator, max_distance):
     """Parse ADMS-4b XML data and extract necessary fields."""
     root = ET.fromstring(xml_data)
     repeater_data = []
     seen_repeaters = set()
+
+    # Convert reference locator to coordinates
+    ref_coords = locator_to_coordinates(reference_locator)
 
     repeaters = root.find("repeaters")
     if not repeaters:
@@ -89,8 +103,16 @@ def parse_adms4b(xml_data):
     for repeater in repeaters.findall("repeater"):
         try:
             name = repeater.find("qra").text if repeater.find("qra") is not None else "Unknown"
-            if not name.startswith("SR9"):
-                continue  # Skip repeaters not starting with "SR9"
+
+            locator = repeater.find("location/locator").text if repeater.find("location/locator") is not None else None
+            if locator is None:
+                continue
+
+            repeater_coords = locator_to_coordinates(locator)
+            distance = geodesic(ref_coords, repeater_coords).km
+
+            if distance > max_distance:
+                continue  # Skip repeaters outside the specified distance
 
             tx_frequency = float(repeater.find("qrg[@type='rx']").text)  # Exchange RX and TX
             rx_frequency = float(repeater.find("qrg[@type='tx']").text)
@@ -180,82 +202,31 @@ def parse_adms4b(xml_data):
         except Exception as e:
             print(f"Error processing repeater: {e}")
 
-    # Fill remaining entries up to 900 with empty rows
-    current_count = len(repeater_data)
-    for i in range(current_count + 1, 901):
-        repeater_data.append({
-            "Channel No": i,
-            "Priority CH": "",
-            "Receive Frequency": "",
-            "Transmit Frequency": "",
-            "Offset Frequency": "",
-            "Offset Direction": "",
-            "AUTO MODE": "",
-            "Operating Mode": "",
-            "DIG/ANALOG": "",
-            "TAG": "",
-            "Name": "",
-            "Tone Mode": "",
-            "CTCSS Frequency": "",
-            "DCS Code": "",
-            "DCS Polarity": "",
-            "USer CTCSS": "",
-            "RX DG-ID": "",
-            "TX DG-ID": "",
-            "Tx Power": "",
-            "Skip": "",
-            "AUTO STEP": "",
-            "Step": "",
-            "Memory Mask": "",
-            "ATT": "",
-            "S-Meter SQL": "",
-            "Bell": "",
-            "Narrow": "",
-            "Clock Shift": "",
-            "BANK 1": "",
-            "BANK 2": "",
-            "BANK 3": "",
-            "BANK 4": "",
-            "BANK 5": "",
-            "BANK 6": "",
-            "BANK 7": "",
-            "BANK 8": "",
-            "BANK 9": "",
-            "BANK 10": "",
-            "BANK 11": "",
-            "BANK 12": "",
-            "BANK 13": "",
-            "BANK 14": "",
-            "BANK 15": "",
-            "BANK 16": "",
-            "BANK 17": "",
-            "BANK 18": "",
-            "BANK 19": "",
-            "BANK 20": "",
-            "BANK 21": "",
-            "BANK 22": "",
-            "BANK 23": "",
-            "BANK 24": "",
-            "Comment": "",
-            "Extra Column": 0
-        })
-
     return repeater_data
 
 def write_adms14_csv(data, output_file):
     """Write the repeater data to a CSV file in ADMS-14 format."""
     with open(output_file, mode="w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=CSV_HEADERS, extrasaction='ignore')
-        writer.writeheader()
-        writer.writerows(data)
+        writer.writerows(data)  # Removed header row
 
 def main():
+    import sys
+    if len(sys.argv) != 3 or "--help" in sys.argv:
+        print("Usage: python script.py <locator> <distance_km>")
+        print("<locator>: Reference Maidenhead locator, e.g., JO90AA")
+        print("<distance_km>: Maximum distance in kilometers from the locator")
+        sys.exit(1)
+
+    reference_locator = sys.argv[1]
+    max_distance = float(sys.argv[2])
+
     try:
         print("Fetching XML data...")
         xml_data = fetch_xml_data(XML_URL)
 
         print("Parsing XML data...")
-        repeater_data = parse_adms4b(xml_data)
+        repeater_data = parse_adms4b(xml_data, reference_locator, max_distance)
 
         print("Writing CSV file...")
         write_adms14_csv(repeater_data, OUTPUT_CSV)
