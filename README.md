@@ -23,6 +23,6 @@ pip install -r requirements.txt
 
 Note: I'm not putting `BACKUP.dat` file here, for obvious reasons.
 
-## Licence
+## License
 
-See the LICENCE file.
+See the LICENSE file.
