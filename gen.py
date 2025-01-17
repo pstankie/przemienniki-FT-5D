@@ -208,6 +208,66 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
         except Exception as e:
             print(f"Error processing repeater: {e}")
 
+    # Fill remaining entries up to 900 with empty rows
+    current_count = len(repeater_data)
+    for i in range(current_count + 1, 901):
+        repeater_data.append({
+            "Channel No": i,
+            "Priority CH": "",
+            "Receive Frequency": "",
+            "Transmit Frequency": "",
+            "Offset Frequency": "",
+            "Offset Direction": "",
+            "AUTO MODE": "",
+            "Operating Mode": "",
+            "DIG/ANALOG": "",
+            "TAG": "",
+            "Name": "",
+            "Tone Mode": "",
+            "CTCSS Frequency": "",
+            "DCS Code": "",
+            "DCS Polarity": "",
+            "USer CTCSS": "",
+            "RX DG-ID": "",
+            "TX DG-ID": "",
+            "Tx Power": "",
+            "Skip": "",
+            "AUTO STEP": "",
+            "Step": "",
+            "Memory Mask": "",
+            "ATT": "",
+            "S-Meter SQL": "",
+            "Bell": "",
+            "Narrow": "",
+            "Clock Shift": "",
+            "BANK 1": "",
+            "BANK 2": "",
+            "BANK 3": "",
+            "BANK 4": "",
+            "BANK 5": "",
+            "BANK 6": "",
+            "BANK 7": "",
+            "BANK 8": "",
+            "BANK 9": "",
+            "BANK 10": "",
+            "BANK 11": "",
+            "BANK 12": "",
+            "BANK 13": "",
+            "BANK 14": "",
+            "BANK 15": "",
+            "BANK 16": "",
+            "BANK 17": "",
+            "BANK 18": "",
+            "BANK 19": "",
+            "BANK 20": "",
+            "BANK 21": "",
+            "BANK 22": "",
+            "BANK 23": "",
+            "BANK 24": "",
+            "Comment": "",
+            "Extra Column": 0
+        })
+
     return repeater_data
 
 def write_adms14_csv(data, output_file):
