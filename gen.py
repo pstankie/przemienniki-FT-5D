@@ -120,32 +120,38 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
         print("No <repeaters> element found in the XML.")
         return repeater_data
 
+    from colorama import Fore, Style
+
     for repeater in repeaters.findall("repeater"):
         try:
             name = repeater.find("qra").text if repeater.find("qra") is not None else "Unknown"
-
+    
             locator = repeater.find("location/locator").text if repeater.find("location/locator") is not None else None
             if locator is None:
                 latitude = repeater.find("location/latitude").text
                 longitude = repeater.find("location/longitude").text
                 if latitude is not None and longitude is not None:
-                    locator = locator_to_coordinates(latitude, longitude)
+                    locator = f"{latitude},{longitude}"
                 else:
                     continue
-
-            repeater_coords = locator_to_coordinates(locator) if isinstance(locator, str) else locator
+    
+            repeater_coords = locator_to_coordinates(locator)
             distance = geodesic(ref_coords, repeater_coords).km
-
+    
+            # Print distance in green if within max_distance, red otherwise
+            distance_color = Fore.GREEN if distance <= max_distance else Fore.RED
             print(
                 f"Name: {name[:16]}, "
-                f"Distance: {distance:.2f} km, "
+                f"{distance_color}Distance: {distance:.2f} km{Style.RESET_ALL}, "
+                f"Locator: {locator}"
             )
-
+    
             if distance > max_distance:
                 continue  # Skip repeaters outside the specified distance
-
+    
             tx_frequency = float(repeater.find("qrg[@type='rx']").text)  # Exchange RX and TX
             rx_frequency = float(repeater.find("qrg[@type='tx']").text)
+ 
 
             # Filter for 2m and 70cm bands
             if not ((144.000 <= rx_frequency <= 148.000) or (420.000 <= rx_frequency <= 450.000)):
