@@ -20,6 +20,11 @@ pip install -r requirements.txt
 ./gen.py JO90vd 100
 ```
 
+Also, file `static_frequencies.csv` contains static entries that are being added for each generation of the adms file.
+
+The static file should contain all the header and also first columne, channel number, must contain `-1`.
+
+
 ## Steps needed to update via microSD Card
 1. Backup your yaesu to microsd
 2. Move to your PC

@@ -12,6 +12,7 @@ from colorama import Fore, Style
 # Constants
 XML_URL = "https://przemienniki.net/export/rxf.xml"
 OUTPUT_CSV = "adms14_ft5d.csv"
+STATIC_CSV = "static_frequencies.csv"
 
 # ADMS-14 CSV headers based on detailed table
 CSV_HEADERS = [
@@ -82,28 +83,14 @@ def locator_to_coordinates(locator):
     if len(locator) < 4 or not locator[:2].isalpha() or not locator[2:4].isdigit():
         raise ValueError(f"Invalid locator: {locator}. Expected a Maidenhead locator like JO90AA.")
 
-    # Process 4-character locators
     lon = (ord(locator[0].upper()) - 65) * 20 - 180 + (int(locator[2]) * 2)
     lat = (ord(locator[1].upper()) - 65) * 10 - 90 + (int(locator[3]) * 1)
 
-    # If 6-character locator, refine further
     if len(locator) >= 6 and locator[4].isalpha() and locator[5].isalpha():
         lon += (ord(locator[4].lower()) - 97) * 5 / 60  # 5 minutes in longitude
         lat += (ord(locator[5].lower()) - 97) * 2.5 / 60  # 2.5 minutes in latitude
 
     return lat, lon
-
-def locator_to_coordinates_old(locator):
-    """Convert Maidenhead locator to latitude and longitude."""
-    if len(locator) < 4 or not locator[:2].isalpha() or not locator[2:].isdigit():
-        raise ValueError(f"Invalid locator: {locator}. Expected a Maidenhead locator like JO90AA.")
-
-    try:
-        lon = (ord(locator[0].upper()) - 65) * 20 - 180 + (int(locator[2]) * 2)
-        lat = (ord(locator[1].upper()) - 65) * 10 - 90 + (int(locator[3]) * 1)
-        return lat, lon
-    except Exception as e:
-        raise ValueError(f"Error converting locator '{locator}' to coordinates: {e}")
 
 def parse_adms4b(xml_data, reference_locator, max_distance):
     """Parse ADMS-4b XML data and extract necessary fields."""
@@ -112,7 +99,6 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
     seen_repeaters = set()
 
     # Convert reference locator to coordinates
-    #print("call locator_to_coordinates %s %s", latitude, longitude)
     ref_coords = locator_to_coordinates(reference_locator)
 
     repeaters = root.find("repeaters")
@@ -120,12 +106,10 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
         print("No <repeaters> element found in the XML.")
         return repeater_data
 
-    from colorama import Fore, Style
-
     for repeater in repeaters.findall("repeater"):
         try:
             name = repeater.find("qra").text if repeater.find("qra") is not None else "Unknown"
-    
+
             locator = repeater.find("location/locator").text if repeater.find("location/locator") is not None else None
             if locator is None:
                 latitude = repeater.find("location/latitude").text
@@ -134,10 +118,10 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
                     locator = f"{latitude},{longitude}"
                 else:
                     continue
-    
+
             repeater_coords = locator_to_coordinates(locator)
             distance = geodesic(ref_coords, repeater_coords).km
-    
+
             # Print distance in green if within max_distance, red otherwise
             distance_color = Fore.GREEN if distance <= max_distance else Fore.RED
             print(
@@ -145,13 +129,12 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
                 f"{distance_color}Distance: {distance:.2f} km{Style.RESET_ALL}, "
                 f"Locator: {locator}"
             )
-    
+
             if distance > max_distance:
                 continue  # Skip repeaters outside the specified distance
-    
+
             tx_frequency = float(repeater.find("qrg[@type='rx']").text)  # Exchange RX and TX
             rx_frequency = float(repeater.find("qrg[@type='tx']").text)
- 
 
             # Filter for 2m and 70cm bands
             if not ((144.000 <= rx_frequency <= 148.000) or (420.000 <= rx_frequency <= 450.000)):
@@ -225,7 +208,7 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
                 "BANK 9": "OFF",
                 "BANK 10": "OFF",
                 "BANK 11": "OFF",
-                "BANK 12": "OFF",
+                "BANK 12":                 "OFF",
                 "BANK 13": "OFF",
                 "BANK 14": "OFF",
                 "BANK 15": "OFF",
@@ -244,10 +227,32 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
         except Exception as e:
             print(f"Error processing repeater: {e}")
 
-    # Fill remaining entries up to 900 with empty rows
-    current_count = len(repeater_data)
+    return repeater_data
+
+def add_static_frequencies(data, start_channel):
+    """Add entries from static_frequencies.csv, adjusting channel numbers."""
+    try:
+        with open(STATIC_CSV, mode="r", encoding="utf-8") as csv_file:
+            reader = csv.DictReader(csv_file)
+            if "Channel No" not in reader.fieldnames:
+                raise ValueError("The CSV file does not contain the required 'Channel No' column.")
+            
+            for row in reader:
+                if row["Channel No"] == "-1":  # Adjust channel numbers
+                    row["Channel No"] = str(start_channel)
+                    start_channel += 1
+                data.append(row)
+    except FileNotFoundError:
+        print(f"Error: The file {STATIC_CSV} was not found.")
+    except ValueError as e:
+        print(f"Error: {e}")
+    return data
+
+def ensure_900_rows(data):
+    """Ensure the total number of rows is 900 by adding empty rows if needed."""
+    current_count = len(data)
     for i in range(current_count + 1, 901):
-        repeater_data.append({
+        data.append({
             "Channel No": i,
             "Priority CH": "",
             "Receive Frequency": "",
@@ -303,13 +308,12 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
             "Comment": "",
             "Extra Column": 0
         })
-
-    return repeater_data
+    return data
 
 def write_adms14_csv(data, output_file):
     """Write the repeater data to a CSV file in ADMS-14 format."""
     with open(output_file, mode="w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=CSV_HEADERS, extrasaction='ignore')
+        writer = csv.DictWriter(csv_file, fieldnames=CSV_HEADERS, extrasaction="ignore")
         writer.writerows(data)  # Write data without headers
 
 def main():
@@ -330,8 +334,16 @@ def main():
         print("Parsing XML data...")
         repeater_data = parse_adms4b(xml_data, reference_locator, max_distance)
 
+        print("Adding static frequencies...")
+        repeater_data = add_static_frequencies(repeater_data, start_channel=len(repeater_data) + 1)
+
+        print("Ensuring 900 rows...")
+        repeater_data = ensure_900_rows(repeater_data)
+
         print("Writing CSV file...")
         write_adms14_csv(repeater_data, OUTPUT_CSV)
+
+        print(CSV_HEADERS)
 
         print(f"ADMS-14 CSV file generated: {OUTPUT_CSV}")
     except Exception as e:
@@ -339,4 +351,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
