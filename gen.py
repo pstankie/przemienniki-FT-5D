@@ -14,6 +14,11 @@ XML_URL = "https://przemienniki.net/export/rxf.xml"
 OUTPUT_CSV = "adms14_ft5d.csv"
 STATIC_CSV = "static_frequencies.csv"
 
+# Offset direction constants
+OFFSET_PLUS = "+RPT"
+OFFSET_MINUS = "-RPT"
+OFFSET_OFF = "OFF"
+
 # ADMS-14 CSV headers based on detailed table
 CSV_HEADERS = [
     "Channel No",
@@ -110,7 +115,8 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
         try:
             name = repeater.find("qra").text if repeater.find("qra") is not None else "Unknown"
 
-            locator = repeater.find("location/locator").text if repeater.find("location/locator") is not None else None
+            locator_element = repeater.find("location/locator")
+            locator = locator_element.text if locator_element is not None else None
             if locator is None:
                 latitude = repeater.find("location/latitude").text
                 longitude = repeater.find("location/longitude").text
@@ -148,9 +154,15 @@ def parse_adms4b(xml_data, reference_locator, max_distance):
             seen_repeaters.add((prefix, rx_frequency))
 
             offset_frequency = abs(rx_frequency - tx_frequency)
-            offset_direction = "+RPT" if tx_frequency > rx_frequency else ("-RPT" if tx_frequency < rx_frequency else "OFF")
+            if tx_frequency > rx_frequency:
+                offset_direction = OFFSET_PLUS
+            elif tx_frequency < rx_frequency:
+                offset_direction = OFFSET_MINUS
+            else:
+                offset_direction = OFFSET_OFF
 
-            ctcss_rx = repeater.find("ctcss[@type='rx']").text if repeater.find("ctcss[@type='rx']") is not None else "88.5"
+            ctcss_rx_element = repeater.find("ctcss[@type='rx']")
+            ctcss_rx = ctcss_rx_element.text if ctcss_rx_element is not None else "88.5"
             if not ctcss_rx.endswith(" Hz"):
                 ctcss_rx += " Hz"
 
